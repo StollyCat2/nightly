@@ -16,6 +16,13 @@ import VenueBottomSheet, { VenueBottomSheetRef } from '../components/VenueBottom
 
 mapboxgl.accessToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
+const QUEUE_COLORS: Record<string, string> = {
+  lite:     '#39ff14', // neon grønn
+  moderat:  '#ffe600', // gul
+  lang:     '#ff6b00', // oransje
+  fullt:    '#ff2244', // rød
+};
+
 function today(): string {
   return new Date().toISOString().split('T')[0];
 }
@@ -120,20 +127,29 @@ export default function MapScreen() {
 
     filteredVenues.forEach((venue) => {
       if (!venue.lat || !venue.lng) return;
-      const color = venue.type ? VENUE_COLORS[venue.type] : VENUE_COLORS.bar;
+
+      const color = QUEUE_COLORS[venue.queueStatus ?? ''] ?? C.accent;
+      const glowSize = venue.queueStatus === 'fullt' ? 14 : venue.queueStatus === 'lang' ? 12 : 10;
+      const ringSize = venue.queueStatus ? 32 : 28;
 
       const el = document.createElement('div');
       el.style.cssText = `
-        width:28px;height:28px;border-radius:50%;
-        background:${color}40;border:1.5px solid ${color}99;
+        width:${ringSize}px;height:${ringSize}px;border-radius:50%;
+        background:${color}28;border:1.5px solid ${color}88;
         display:flex;align-items:center;justify-content:center;cursor:pointer;
+        transition:transform 0.15s ease;
       `;
+      el.onmouseenter = () => { el.style.transform = 'scale(1.25)'; };
+      el.onmouseleave = () => { el.style.transform = 'scale(1)'; };
+
       const core = document.createElement('div');
       core.style.cssText = `
-        width:10px;height:10px;border-radius:50%;
-        background:${color};box-shadow:0 0 8px 3px ${color};
+        width:${glowSize}px;height:${glowSize}px;border-radius:50%;
+        background:${color};
+        box-shadow:0 0 ${glowSize + 4}px ${Math.round(glowSize / 2)}px ${color};
       `;
       el.appendChild(core);
+
       el.addEventListener('click', () => {
         setSelectedVenue(venue);
         sheetRef.current?.open();
@@ -236,6 +252,21 @@ export default function MapScreen() {
         onClose={() => setSelectedVenue(null)}
       />
 
+      {/* Queue legend */}
+      <View style={styles.legend}>
+        {[
+          { color: '#39ff14', label: 'Lite kø' },
+          { color: '#ffe600', label: 'Moderat' },
+          { color: '#ff6b00', label: 'Lang kø' },
+          { color: '#ff2244', label: 'Fullt' },
+        ].map((item) => (
+          <View key={item.label} style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: item.color, shadowColor: item.color }]} />
+            <Text style={styles.legendLabel}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+
       {/* Weekend prompt */}
       <GoingOutPrompt
         visible={showPrompt}
@@ -284,4 +315,19 @@ const styles = StyleSheet.create({
   counterDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e040fb' },
   counterCount: { fontSize: 15, fontWeight: '800', color: C.accent },
   counterLabel: { fontSize: 11, color: C.muted },
+  legend: {
+    position: 'absolute', bottom: 24, left: 16,
+    flexDirection: 'row', gap: 10,
+    backgroundColor: C.card,
+    borderRadius: 20, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 14, paddingVertical: 8,
+    zIndex: 10,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: {
+    width: 8, height: 8, borderRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9, shadowRadius: 4,
+  },
+  legendLabel: { fontSize: 11, color: C.muted, fontWeight: '500' },
 });
