@@ -16,6 +16,11 @@ import VenueBottomSheet, { VenueBottomSheetRef } from '../components/VenueBottom
 
 mapboxgl.accessToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
+const searchInputStyle: React.CSSProperties = {
+  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+  color: '#ffffff', fontSize: 15, fontFamily: 'inherit', minWidth: 0,
+};
+
 const QUEUE_COLORS: Record<string, string> = {
   lite:     '#39ff14', // neon grønn
   moderat:  '#ffe600', // gul
@@ -44,7 +49,12 @@ export default function MapScreen() {
   const [goingOutCount, setGoingOutCount] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [cityQuery, setCityQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<VenueType | 'alle'>('alle');
+
+  const cityResults = cityQuery.length > 0
+    ? CITIES.filter((c) => c.name.toLowerCase().startsWith(cityQuery.toLowerCase()))
+    : CITIES;
 
   const { venues } = useVenues();
   const filteredVenues = typeFilter === 'alle' ? venues : venues.filter(v => v.type === typeFilter);
@@ -205,26 +215,41 @@ export default function MapScreen() {
     <View style={styles.container}>
       <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
 
-      {/* City picker */}
+      {/* City search */}
       <View style={styles.searchWrapper}>
-        <TouchableOpacity style={styles.cityPill} onPress={() => setShowCityPicker(v => !v)}>
-          <Text style={styles.cityPillIcon}>📍</Text>
-          <Text style={styles.cityPillText}>{activeCity.name}</Text>
-          <Text style={styles.cityPillChevron}>{showCityPicker ? '▲' : '▼'}</Text>
-        </TouchableOpacity>
-        {showCityPicker && (
+        <View style={[styles.searchBar, showCityPicker && styles.searchBarFocused]}>
+          <Text style={styles.searchPin}>📍</Text>
+          <input
+            style={searchInputStyle}
+            placeholder={`${activeCity.name}`}
+            value={cityQuery}
+            onChange={(e) => { setCityQuery(e.target.value); setShowCityPicker(true); }}
+            onFocus={() => setShowCityPicker(true)}
+            onBlur={() => setTimeout(() => setShowCityPicker(false), 150)}
+          />
+          {cityQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setCityQuery('')}>
+              <Text style={styles.searchClear}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {showCityPicker && cityResults.length > 0 && (
           <View style={styles.dropdown}>
-            {CITIES.map((city) => (
+            {cityResults.map((city, i) => (
               <TouchableOpacity
                 key={city.id}
-                style={[styles.dropdownItem, city.id === activeCity.id && styles.dropdownItemActive]}
-                onPress={() => flyToCity(city)}
+                style={[styles.dropdownItem, i === cityResults.length - 1 && { borderBottomWidth: 0 }]}
+                onPress={() => { flyToCity(city); setCityQuery(''); }}
               >
-                <Text style={styles.dropdownIcon}>📍</Text>
-                <Text style={[styles.dropdownText, city.id === activeCity.id && styles.dropdownTextActive]}>
-                  {city.name}
-                </Text>
-                {city.id === activeCity.id && <Text style={styles.dropdownCheck}>✓</Text>}
+                <Text style={styles.dropdownIcon}>{city.id === activeCity.id ? '✓' : '📍'}</Text>
+                <View style={styles.dropdownTextWrap}>
+                  <Text style={[styles.dropdownText, city.id === activeCity.id && styles.dropdownTextActive]}>
+                    {city.name}
+                  </Text>
+                  {i < 2 && cityQuery.length === 0 && (
+                    <Text style={styles.dropdownHint}>Anbefalt</Text>
+                  )}
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -280,31 +305,30 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   filterWrapper: { position: 'absolute', top: 76, left: 8, right: 8, zIndex: 10 },
-  searchWrapper: { position: 'absolute', top: 20, left: 16, right: 16, zIndex: 20 },
-  cityPill: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
-    backgroundColor: C.card, borderRadius: 24,
-    paddingHorizontal: 16, paddingVertical: 11,
-    borderWidth: 1, borderColor: C.borderBright, gap: 8,
+  searchWrapper: { position: 'absolute', top: 20, left: 16, right: 280, zIndex: 20 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.card, borderRadius: 16,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: C.border, gap: 8,
   },
-  cityPillIcon: { fontSize: 14 },
-  cityPillText: { color: C.text, fontSize: 16, fontWeight: '700' },
-  cityPillChevron: { color: C.muted, fontSize: 10 },
+  searchBarFocused: { borderColor: C.borderBright },
+  searchPin: { fontSize: 14 },
+  searchClear: { color: C.faint, fontSize: 14, paddingLeft: 4 },
   dropdown: {
-    backgroundColor: C.cardSolid, borderRadius: 16, marginTop: 8,
+    backgroundColor: C.cardSolid, borderRadius: 16, marginTop: 6,
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
-    alignSelf: 'flex-start', minWidth: 180,
   },
   dropdownItem: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14, gap: 10,
+    paddingHorizontal: 16, paddingVertical: 13, gap: 10,
     borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  dropdownItemActive: { backgroundColor: C.accentGlow },
-  dropdownIcon: { fontSize: 14 },
-  dropdownText: { color: C.muted, fontSize: 15, fontWeight: '600', flex: 1 },
-  dropdownTextActive: { color: C.text },
-  dropdownCheck: { color: C.accent, fontSize: 14, fontWeight: '800' },
+  dropdownIcon: { fontSize: 13, width: 18, color: C.accent },
+  dropdownTextWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dropdownText: { color: C.muted, fontSize: 15, fontWeight: '500' },
+  dropdownTextActive: { color: C.text, fontWeight: '700' },
+  dropdownHint: { fontSize: 11, color: C.faint, fontStyle: 'italic' },
   counter: {
     position: 'absolute', top: 80, right: 16,
     backgroundColor: C.card, borderRadius: 14,
