@@ -40,7 +40,7 @@ function isWeekendNight(): boolean {
 export default function MapScreen() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const animFrameRef = useRef<number | null>(null);
   const sheetRef = useRef<VenueBottomSheetRef>(null);
 
@@ -132,11 +132,23 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!map.current) return;
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
 
+    const currentIds = new Set(filteredVenues.map((v) => v.id));
+
+    // Remove markers for venues no longer in the list
+    markersRef.current.forEach((marker, id) => {
+      if (!currentIds.has(id)) {
+        marker.remove();
+        markersRef.current.delete(id);
+      }
+    });
+
+    // Add or update markers
     filteredVenues.forEach((venue) => {
       if (!venue.lat || !venue.lng) return;
+
+      // Already exists — skip (position doesn't change)
+      if (markersRef.current.has(venue.id)) return;
 
       const color = QUEUE_COLORS[venue.queueStatus ?? ''] ?? C.accent;
       const glowSize = venue.queueStatus === 'fullt' ? 14 : venue.queueStatus === 'lang' ? 12 : 10;
@@ -159,15 +171,16 @@ export default function MapScreen() {
         box-shadow:0 0 ${glowSize + 4}px ${Math.round(glowSize / 2)}px ${color};
       `;
       el.appendChild(core);
-
       el.addEventListener('click', () => {
         setSelectedVenue(venue);
         sheetRef.current?.open();
       });
 
-      markersRef.current.push(
-        new mapboxgl.Marker({ element: el }).setLngLat([venue.lng, venue.lat]).addTo(map.current!),
-      );
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([venue.lng, venue.lat])
+        .addTo(map.current!);
+
+      markersRef.current.set(venue.id, marker);
     });
   }, [filteredVenues]);
 
