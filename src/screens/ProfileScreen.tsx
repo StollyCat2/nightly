@@ -12,11 +12,27 @@ import { requestNotificationPermission } from '../utils/notifications';
 
 type Sheet = 'varsler' | 'posisjon' | 'by' | 'personvern' | 'om' | null;
 
+const ICON_COLORS = {
+  bell:    { bg: '#2a1a4a', color: '#c77dff' },
+  pin:     { bg: '#0d2a1a', color: '#39ff14' },
+  city:    { bg: '#1a1a2a', color: '#7eb8ff' },
+  privacy: { bg: '#2a1a1a', color: '#ff8c42' },
+  info:    { bg: '#1a2a2a', color: '#00d4ff' },
+};
+
+function IconBox({ icon, scheme }: { icon: string; scheme: keyof typeof ICON_COLORS }) {
+  const s = ICON_COLORS[scheme];
+  return (
+    <View style={[styles.iconBox, { backgroundColor: s.bg }]}>
+      <Text style={[styles.iconBoxText, { color: s.color }]}>{icon}</Text>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const user = auth.currentUser;
   const [loggingOut, setLoggingOut] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
-
   const [notificationsOn, setNotificationsOn] = useState(false);
   const [locationOn, setLocationOn] = useState(false);
   const [myCity, setMyCity] = useState('Oslo');
@@ -56,33 +72,42 @@ export default function ProfileScreen() {
   };
 
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? '?';
+  const emailShort = user?.email ?? '';
 
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Profil</Text>
-        </View>
 
-        {/* Avatar */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <View style={styles.avatarGlow} />
-            <Text style={styles.avatarText}>{initials}</Text>
+        {/* Hero / Avatar */}
+        <View style={styles.hero}>
+          <View style={styles.avatarRing}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
           </View>
-          <Text style={styles.email}>{user?.email ?? ''}</Text>
-          <Text style={styles.memberSince}>Nightly-bruker</Text>
+          <Text style={styles.email}>{emailShort}</Text>
+          <View style={styles.badge}>
+            <View style={styles.badgeDot} />
+            <Text style={styles.badgeText}>Nightly</Text>
+          </View>
         </View>
 
-        {/* Stats */}
+        {/* Quick stats */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
+            <Text style={styles.statIcon}>📍</Text>
             <Text style={styles.statValue}>{myCity}</Text>
             <Text style={styles.statLabel}>Din by</Text>
           </View>
+          <View style={[styles.statCard, styles.statCardMid]}>
+            <Text style={styles.statIcon}>◎</Text>
+            <Text style={styles.statValue}>Utforsker</Text>
+            <Text style={styles.statLabel}>Nivå</Text>
+          </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>◎</Text>
-            <Text style={styles.statLabel}>Utforsker</Text>
+            <Text style={styles.statIcon}>✦</Text>
+            <Text style={styles.statValue}>v1.0</Text>
+            <Text style={styles.statLabel}>Versjon</Text>
           </View>
         </View>
 
@@ -91,24 +116,22 @@ export default function ProfileScreen() {
           <Text style={styles.sectionLabel}>Innstillinger</Text>
           <View style={styles.menuCard}>
 
-            {/* Varsler */}
             <View style={styles.menuItem}>
-              <Text style={styles.menuIcon}>🔔</Text>
+              <IconBox icon="🔔" scheme="bell" />
               <Text style={styles.menuText}>Varsler</Text>
               <Switch
                 value={notificationsOn}
                 onValueChange={toggleNotifications}
-                trackColor={{ false: C.border, true: C.accent + '88' }}
-                thumbColor={notificationsOn ? C.accent : C.faint}
+                trackColor={{ false: C.border, true: '#c77dff55' }}
+                thumbColor={notificationsOn ? C.accent : '#4a3a6b'}
               />
             </View>
 
             <View style={styles.menuDivider} />
 
-            {/* Posisjon */}
             <TouchableOpacity style={styles.menuItem} onPress={() => setSheet('posisjon')}>
-              <Text style={styles.menuIcon}>📍</Text>
-              <View style={{ flex: 1 }}>
+              <IconBox icon="◉" scheme="pin" />
+              <View style={styles.menuTextWrap}>
                 <Text style={styles.menuText}>Posisjon</Text>
                 <Text style={styles.menuSub}>{locationOn ? 'Aktivert' : 'Ikke aktivert'}</Text>
               </View>
@@ -117,10 +140,9 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
-            {/* Min by */}
             <TouchableOpacity style={styles.menuItem} onPress={() => setSheet('by')}>
-              <Text style={styles.menuIcon}>🌆</Text>
-              <View style={{ flex: 1 }}>
+              <IconBox icon="◈" scheme="city" />
+              <View style={styles.menuTextWrap}>
                 <Text style={styles.menuText}>Min by</Text>
                 <Text style={styles.menuSub}>{myCity}</Text>
               </View>
@@ -135,13 +157,13 @@ export default function ProfileScreen() {
           <Text style={styles.sectionLabel}>Om</Text>
           <View style={styles.menuCard}>
             <TouchableOpacity style={styles.menuItem} onPress={() => setSheet('personvern')}>
-              <Text style={styles.menuIcon}>📋</Text>
+              <IconBox icon="◻" scheme="privacy" />
               <Text style={styles.menuText}>Personvern</Text>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={() => setSheet('om')}>
-              <Text style={styles.menuIcon}>ℹ️</Text>
+              <IconBox icon="✦" scheme="info" />
               <Text style={styles.menuText}>Om Nightly</Text>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
@@ -152,10 +174,9 @@ export default function ProfileScreen() {
           <Text style={styles.signOutText}>{loggingOut ? 'Logger ut...' : 'Logg ut'}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>Nightly v1.0</Text>
       </ScrollView>
 
-      {/* Posisjon sheet */}
+      {/* Modals */}
       <InfoModal visible={sheet === 'posisjon'} onClose={() => setSheet(null)} title="Posisjon">
         <Text style={styles.sheetBody}>
           Nightly bruker posisjonen din til å vise byens puls — de fargede områdene på kartet som viser
@@ -172,8 +193,8 @@ export default function ProfileScreen() {
           <Switch
             value={locationOn}
             onValueChange={(val) => { toggleLocation(val); }}
-            trackColor={{ false: C.border, true: C.accent + '88' }}
-            thumbColor={locationOn ? C.accent : C.faint}
+            trackColor={{ false: C.border, true: '#c77dff55' }}
+            thumbColor={locationOn ? C.accent : '#4a3a6b'}
           />
         </View>
         {Platform.OS !== 'web' && (
@@ -183,7 +204,6 @@ export default function ProfileScreen() {
         )}
       </InfoModal>
 
-      {/* Min by sheet */}
       <InfoModal visible={sheet === 'by'} onClose={() => setSheet(null)} title="Min by">
         <Text style={styles.sheetBody}>Velg din hjemby. Dette påvirker hvilken by som vises som standard på kartet.</Text>
         <View style={styles.cityList}>
@@ -202,7 +222,6 @@ export default function ProfileScreen() {
         </View>
       </InfoModal>
 
-      {/* Personvern sheet */}
       <InfoModal visible={sheet === 'personvern'} onClose={() => setSheet(null)} title="Personvern">
         <Text style={styles.sheetHeading}>Hvilke data samler vi inn?</Text>
         <Text style={styles.sheetBody}>
@@ -212,33 +231,24 @@ export default function ProfileScreen() {
         <Text style={styles.sheetHeading}>Lagring</Text>
         <Text style={styles.sheetBody}>
           Din eksakte posisjon lagres aldri permanent. Posisjonspunkter slettes automatisk etter 10 minutter.
-          Vi lagrer ikke navn, telefonnummer eller annen personlig informasjon utover e-postadressen du
-          brukte til å opprette konto.
-        </Text>
-        <Text style={styles.sheetHeading}>Deling med tredjeparter</Text>
-        <Text style={styles.sheetBody}>
-          Vi deler ingen personopplysninger med tredjeparter. Appen bruker Firebase (Google) for
-          autentisering og datalagring, underlagt Googles personvernpolitikk.
         </Text>
         <Text style={styles.sheetHeading}>Sletting av konto</Text>
         <Text style={styles.sheetBody}>
-          Ønsker du å slette kontoen din og alle tilknyttede data, ta kontakt med oss på{' '}
+          Ta kontakt på{' '}
           <Text style={styles.sheetLinkInline} onPress={() => Linking.openURL('mailto:hei@nightly.no')}>
             hei@nightly.no
           </Text>
         </Text>
       </InfoModal>
 
-      {/* Om Nightly sheet */}
       <InfoModal visible={sheet === 'om'} onClose={() => setSheet(null)} title="Om Nightly">
         <View style={styles.omLogo}>
-          <Text style={styles.omLogoIcon}>✦</Text>
-          <Text style={styles.omLogoText}>Nightly</Text>
+          <Text style={styles.omLogoText}>nightly</Text>
+          <Text style={styles.omVersion}>Versjon 1.0.0</Text>
         </View>
-        <Text style={styles.omVersion}>Versjon 1.0.0</Text>
         <Text style={styles.sheetBody}>
-          Nightly er appen som viser byens puls i sanntid. Se hvilke utesteder som er hete,
-          hva som skjer i kveld og hvor folkemengden samler seg — alt på ett kart.
+          Appen som viser byens puls i sanntid. Se hvilke utesteder som er hete,
+          hva som skjer i kveld og hvor folkemengden samler seg.
         </Text>
         <View style={styles.sheetBullets}>
           <Text style={styles.bullet}>✦ Live kø-status fra utesteder</Text>
@@ -246,7 +256,7 @@ export default function ProfileScreen() {
           <Text style={styles.bullet}>✦ Byens puls i sanntid</Text>
         </View>
         <TouchableOpacity style={styles.sheetLink} onPress={() => Linking.openURL('mailto:hei@nightly.no')}>
-          <Text style={styles.sheetLinkText}>Kontakt oss: hei@nightly.no →</Text>
+          <Text style={styles.sheetLinkText}>hei@nightly.no →</Text>
         </TouchableOpacity>
       </InfoModal>
     </>
@@ -260,6 +270,7 @@ function InfoModal({ visible, onClose, title, children }: {
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
@@ -278,46 +289,91 @@ function InfoModal({ visible, onClose, title, children }: {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   content: { paddingBottom: 60 },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 8 },
-  title: { fontSize: 32, fontWeight: '800', color: C.text },
-  avatarSection: { alignItems: 'center', paddingVertical: 32 },
-  avatar: {
-    width: 88, height: 88, borderRadius: 44, backgroundColor: C.cardSolid,
+
+  // Hero
+  hero: { alignItems: 'center', paddingTop: 56, paddingBottom: 32 },
+  avatarRing: {
+    width: 96, height: 96, borderRadius: 48,
     borderWidth: 2, borderColor: C.borderBright,
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: C.accent, shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4, shadowRadius: 16,
   },
-  avatarGlow: { position: 'absolute', width: 88, height: 88, borderRadius: 44, backgroundColor: C.accent, opacity: 0.15 },
-  avatarText: { fontSize: 28, fontWeight: '800', color: C.accent },
-  email: { fontSize: 16, color: C.text, fontWeight: '600', marginTop: 12 },
-  memberSince: { fontSize: 13, color: C.muted, marginTop: 4 },
-  statsRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginBottom: 28 },
-  statCard: { flex: 1, backgroundColor: C.cardSolid, borderRadius: RADIUS, borderWidth: 1, borderColor: C.border, padding: 16, alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '800', color: C.accent, marginBottom: 4 },
-  statLabel: { fontSize: 12, color: C.muted },
-  section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.faint, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 },
-  menuCard: { backgroundColor: C.cardSolid, borderRadius: RADIUS_LG, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  menuIcon: { fontSize: 18, width: 28 },
-  menuText: { flex: 1, fontSize: 16, color: C.text, fontWeight: '500' },
-  menuSub: { fontSize: 12, color: C.muted, marginTop: 1 },
-  menuArrow: { fontSize: 20, color: C.faint },
-  menuDivider: { height: 1, backgroundColor: C.border, marginLeft: 56 },
-  signOutBtn: { marginHorizontal: 20, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255,34,68,0.3)', borderRadius: RADIUS, paddingVertical: 14, alignItems: 'center' },
-  signOutText: { color: '#ff2244', fontSize: 15, fontWeight: '600' },
-  version: { textAlign: 'center', fontSize: 12, color: C.faint, marginTop: 24 },
+  avatar: {
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: C.cardSolid,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontSize: 30, fontWeight: '800', color: C.accent },
+  email: { fontSize: 15, color: C.text, fontWeight: '500', marginBottom: 8 },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: C.cardSolid, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 5,
+    borderWidth: 1, borderColor: C.border,
+  },
+  badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent },
+  badgeText: { fontSize: 12, color: C.muted, fontWeight: '600', letterSpacing: 0.5 },
+
+  // Stats
+  statsRow: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 28, gap: 10 },
+  statCard: {
+    flex: 1, backgroundColor: C.cardSolid,
+    borderRadius: RADIUS, borderWidth: 1, borderColor: C.border,
+    padding: 14, alignItems: 'center', gap: 4,
+  },
+  statCardMid: { borderColor: C.borderBright },
+  statIcon: { fontSize: 16, marginBottom: 2 },
+  statValue: { fontSize: 13, fontWeight: '700', color: C.text, textAlign: 'center' },
+  statLabel: { fontSize: 10, color: C.faint, letterSpacing: 0.5 },
+
+  // Menu
+  section: { paddingHorizontal: 20, marginBottom: 16 },
+  sectionLabel: {
+    fontSize: 11, fontWeight: '700', color: C.faint,
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
+  },
+  menuCard: {
+    backgroundColor: C.cardSolid, borderRadius: RADIUS_LG,
+    borderWidth: 1, borderColor: C.border, overflow: 'hidden',
+  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, gap: 14 },
+  iconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  iconBoxText: { fontSize: 16 },
+  menuTextWrap: { flex: 1 },
+  menuText: { fontSize: 15, color: C.text, fontWeight: '500' },
+  menuSub: { fontSize: 12, color: C.faint, marginTop: 1 },
+  menuArrow: { fontSize: 18, color: C.faint },
+  menuDivider: { height: 1, backgroundColor: C.border, marginLeft: 66 },
+
+  // Sign out
+  signOutBtn: {
+    marginHorizontal: 20, marginTop: 8,
+    borderWidth: 1, borderColor: 'rgba(255,34,68,0.25)',
+    borderRadius: RADIUS_LG, paddingVertical: 14, alignItems: 'center',
+    backgroundColor: 'rgba(255,34,68,0.05)',
+  },
+  signOutText: { color: '#ff4466', fontSize: 15, fontWeight: '600' },
 
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(5,0,8,0.85)' },
-  modalSheet: { backgroundColor: '#0d001a', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: C.border, maxHeight: '85%' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border },
-  modalTitle: { flex: 1, fontSize: 20, fontWeight: '800', color: C.text },
-  modalClose: { padding: 4 },
-  modalCloseText: { fontSize: 16, color: C.muted },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(5,0,8,0.88)' },
+  modalSheet: {
+    backgroundColor: '#0d001a', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    borderWidth: 1, borderColor: C.border, maxHeight: '85%',
+  },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.faint, alignSelf: 'center', marginTop: 12 },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  modalTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: C.text },
+  modalClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.cardSolid, alignItems: 'center', justifyContent: 'center' },
+  modalCloseText: { fontSize: 13, color: C.muted },
   modalContent: { padding: 24, paddingBottom: 48 },
 
-  // Sheet content
-  sheetHeading: { fontSize: 13, fontWeight: '700', color: C.accent, letterSpacing: 0.5, marginBottom: 6, marginTop: 16 },
+  sheetHeading: { fontSize: 12, fontWeight: '700', color: C.accent, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 20 },
   sheetBody: { fontSize: 15, color: C.muted, lineHeight: 24 },
   sheetBullets: { gap: 10, marginTop: 16 },
   bullet: { fontSize: 14, color: C.accent, lineHeight: 20 },
@@ -327,17 +383,18 @@ const styles = StyleSheet.create({
   sheetLinkText: { color: C.accent, fontSize: 14, fontWeight: '600' },
   sheetLinkInline: { color: C.accent, fontWeight: '600' },
 
-  // City picker
-  cityList: { gap: 4, marginTop: 16 },
-  cityRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: RADIUS, borderWidth: 1, borderColor: C.border, backgroundColor: C.cardSolid },
-  cityRowActive: { borderColor: C.accent, backgroundColor: C.accentGlow },
-  cityRowText: { flex: 1, fontSize: 16, color: C.muted, fontWeight: '600' },
-  cityRowTextActive: { color: C.text },
-  cityCheck: { color: C.accent, fontSize: 16, fontWeight: '800' },
+  cityList: { gap: 6, marginTop: 16 },
+  cityRow: {
+    flexDirection: 'row', alignItems: 'center', padding: 16,
+    borderRadius: RADIUS, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.cardSolid,
+  },
+  cityRowActive: { borderColor: C.accent, backgroundColor: 'rgba(199,125,255,0.08)' },
+  cityRowText: { flex: 1, fontSize: 16, color: C.muted, fontWeight: '500' },
+  cityRowTextActive: { color: C.text, fontWeight: '700' },
+  cityCheck: { color: C.accent, fontSize: 15, fontWeight: '800' },
 
-  // Om Nightly
-  omLogo: { alignItems: 'center', paddingVertical: 24 },
-  omLogoIcon: { fontSize: 36, color: C.accent, marginBottom: 8 },
-  omLogoText: { fontSize: 28, fontWeight: '800', color: C.text, letterSpacing: 1 },
-  omVersion: { textAlign: 'center', fontSize: 13, color: C.faint, marginBottom: 20 },
+  omLogo: { alignItems: 'center', paddingVertical: 20 },
+  omLogoText: { fontSize: 32, fontWeight: '800', color: C.text, letterSpacing: 6 },
+  omVersion: { fontSize: 12, color: C.faint, marginTop: 6 },
 });
