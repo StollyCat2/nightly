@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Image, Linking,
 } from 'react-native';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { C, RADIUS, RADIUS_LG } from '../constants/theme';
 import { CITIES } from '../constants/cities';
@@ -55,7 +55,12 @@ export default function ConcertsScreen() {
   const [selectedGenre, setSelectedGenre] = useState('Alle');
 
   useEffect(() => {
-    const q = query(collection(db, 'concerts'), orderBy('date', 'asc'));
+    const now = Timestamp.fromDate(new Date());
+    const q = query(
+      collection(db, 'concerts'),
+      where('date', '>=', now),
+      orderBy('date', 'asc'),
+    );
     return onSnapshot(q, (snap) => {
       setConcerts(snap.docs.map((d) => {
         const raw = d.data();
@@ -119,8 +124,16 @@ export default function ConcertsScreen() {
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>♪</Text>
-            <Text style={styles.emptyTitle}>Ingen konserter funnet</Text>
-            <Text style={styles.emptyText}>Prøv et annet filter.</Text>
+            <Text style={styles.emptyTitle}>
+              {selectedCity !== 'Alle' || selectedGenre !== 'Alle'
+                ? 'Ingen treff'
+                : 'Ingen kommende konserter'}
+            </Text>
+            <Text style={styles.emptyText}>
+              {selectedCity !== 'Alle' || selectedGenre !== 'Alle'
+                ? 'Prøv et annet filter.'
+                : 'Nye konserter legges til fortløpende.'}
+            </Text>
           </View>
         ) : (
           <>
