@@ -305,11 +305,11 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   filterWrapper: { position: 'absolute', top: 76, left: 8, right: 8, zIndex: 10 },
-  searchWrapper: { position: 'absolute', top: 20, left: 16, right: 280, zIndex: 20 },
+  searchWrapper: { position: 'absolute', top: 20, left: 16, width: 200, zIndex: 20 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card, borderRadius: 16,
-    paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: C.card, borderRadius: 24,
+    paddingHorizontal: 14, paddingVertical: 9,
     borderWidth: 1, borderColor: C.border, gap: 8,
   },
   searchBarFocused: { borderColor: C.borderBright },
