@@ -40,8 +40,8 @@ function isWeekendNight(): boolean {
 export default function MapScreen() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const animFrameRef = useRef<number | null>(null);
+  const venuesRef = useRef<VenueDoc[]>([]);
   const sheetRef = useRef<VenueBottomSheetRef>(null);
 
   const [activeCity, setActiveCity] = useState<City>(DEFAULT_CITY);
@@ -74,6 +74,7 @@ export default function MapScreen() {
     });
 
     map.current.on('load', () => {
+      // Pulse heatmap source
       map.current!.addSource('pulse-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
@@ -98,6 +99,66 @@ export default function MapScreen() {
           ],
         },
       });
+
+      // Venue markers — WebGL circles (no DOM lag)
+      const colorExpr: mapboxgl.Expression = ['case',
+        ['==', ['get', 'qs'], 'lite'],    '#39ff14',
+        ['==', ['get', 'qs'], 'moderat'], '#ffe600',
+        ['==', ['get', 'qs'], 'lang'],    '#ff6b00',
+        ['==', ['get', 'qs'], 'fullt'],   '#ff2244',
+        '#c77dff',
+      ];
+
+      map.current!.addSource('venues-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+
+      // Outer glow ring
+      map.current!.addLayer({
+        id: 'venues-halo',
+        type: 'circle',
+        source: 'venues-source',
+        paint: {
+          'circle-radius': 18,
+          'circle-color': colorExpr,
+          'circle-opacity': 0.12,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': colorExpr,
+          'circle-stroke-opacity': 0.5,
+        },
+      });
+
+      // Inner core dot
+      map.current!.addLayer({
+        id: 'venues-core',
+        type: 'circle',
+        source: 'venues-source',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': colorExpr,
+          'circle-opacity': 1,
+          'circle-blur': 0.15,
+        },
+      });
+
+      // Click handler
+      map.current!.on('click', 'venues-halo', (e) => {
+        const id = e.features?.[0]?.properties?.id;
+        const venue = venuesRef.current.find((v) => v.id === id);
+        if (venue) { setSelectedVenue(venue); sheetRef.current?.open(); }
+      });
+      map.current!.on('click', 'venues-core', (e) => {
+        const id = e.features?.[0]?.properties?.id;
+        const venue = venuesRef.current.find((v) => v.id === id);
+        if (venue) { setSelectedVenue(venue); sheetRef.current?.open(); }
+      });
+
+      // Cursor
+      map.current!.on('mouseenter', 'venues-core', () => { map.current!.getCanvas().style.cursor = 'pointer'; });
+      map.current!.on('mouseleave', 'venues-core', () => { map.current!.getCanvas().style.cursor = ''; });
+      map.current!.on('mouseenter', 'venues-halo', () => { map.current!.getCanvas().style.cursor = 'pointer'; });
+      map.current!.on('mouseleave', 'venues-halo', () => { map.current!.getCanvas().style.cursor = ''; });
 
       const animate = () => {
         const t = Date.now() / 1000;
@@ -130,57 +191,22 @@ export default function MapScreen() {
     });
   }, [pulsePoints]);
 
+  // Keep venuesRef in sync for click handler
+  useEffect(() => { venuesRef.current = filteredVenues; }, [filteredVenues]);
+
+  // Update WebGL venue source
   useEffect(() => {
-    if (!map.current) return;
-
-    const currentIds = new Set(filteredVenues.map((v) => v.id));
-
-    // Remove markers for venues no longer in the list
-    markersRef.current.forEach((marker, id) => {
-      if (!currentIds.has(id)) {
-        marker.remove();
-        markersRef.current.delete(id);
-      }
-    });
-
-    // Add or update markers
-    filteredVenues.forEach((venue) => {
-      if (!venue.lat || !venue.lng) return;
-
-      // Already exists — skip (position doesn't change)
-      if (markersRef.current.has(venue.id)) return;
-
-      const color = QUEUE_COLORS[venue.queueStatus ?? ''] ?? C.accent;
-      const glowSize = venue.queueStatus === 'fullt' ? 14 : venue.queueStatus === 'lang' ? 12 : 10;
-      const ringSize = venue.queueStatus ? 32 : 28;
-
-      const el = document.createElement('div');
-      el.style.cssText = `
-        width:${ringSize}px;height:${ringSize}px;border-radius:50%;
-        background:${color}28;border:1.5px solid ${color}88;
-        display:flex;align-items:center;justify-content:center;cursor:pointer;
-        transition:transform 0.15s ease;
-      `;
-      el.onmouseenter = () => { el.style.transform = 'scale(1.25)'; };
-      el.onmouseleave = () => { el.style.transform = 'scale(1)'; };
-
-      const core = document.createElement('div');
-      core.style.cssText = `
-        width:${glowSize}px;height:${glowSize}px;border-radius:50%;
-        background:${color};
-        box-shadow:0 0 ${glowSize + 4}px ${Math.round(glowSize / 2)}px ${color};
-      `;
-      el.appendChild(core);
-      el.addEventListener('click', () => {
-        setSelectedVenue(venue);
-        sheetRef.current?.open();
-      });
-
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([venue.lng, venue.lat])
-        .addTo(map.current!);
-
-      markersRef.current.set(venue.id, marker);
+    const src = map.current?.getSource('venues-source') as mapboxgl.GeoJSONSource | undefined;
+    if (!src) return;
+    src.setData({
+      type: 'FeatureCollection',
+      features: filteredVenues
+        .filter((v) => v.lat && v.lng)
+        .map((v) => ({
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: [v.lng!, v.lat!] },
+          properties: { id: v.id, qs: v.queueStatus ?? '' },
+        })),
     });
   }, [filteredVenues]);
 
