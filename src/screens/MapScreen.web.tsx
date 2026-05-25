@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -42,6 +42,7 @@ export default function MapScreen() {
   const map = useRef<mapboxgl.Map | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const venuesRef = useRef<VenueDoc[]>([]);
+  const mapReadyRef = useRef(false);
   const sheetRef = useRef<VenueBottomSheetRef>(null);
 
   const [activeCity, setActiveCity] = useState<City>(DEFAULT_CITY);
@@ -57,7 +58,10 @@ export default function MapScreen() {
     : CITIES;
 
   const { venues } = useVenues();
-  const filteredVenues = typeFilter === 'alle' ? venues : venues.filter(v => v.type === typeFilter);
+  const filteredVenues = useMemo(
+    () => typeFilter === 'alle' ? venues : venues.filter(v => v.type === typeFilter),
+    [venues, typeFilter],
+  );
   const pulsePoints = usePulseZones(activeCity.id, venues);
 
   useEffect(() => {
@@ -160,6 +164,20 @@ export default function MapScreen() {
       map.current!.on('mouseenter', 'venues-halo', () => { map.current!.getCanvas().style.cursor = 'pointer'; });
       map.current!.on('mouseleave', 'venues-halo', () => { map.current!.getCanvas().style.cursor = ''; });
 
+      // Mark map ready and seed any venues that arrived before load fired
+      mapReadyRef.current = true;
+      const initialSrc = map.current!.getSource('venues-source') as mapboxgl.GeoJSONSource;
+      initialSrc.setData({
+        type: 'FeatureCollection',
+        features: venuesRef.current
+          .filter((v) => v.lat && v.lng)
+          .map((v) => ({
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [v.lng!, v.lat!] },
+            properties: { id: v.id, qs: v.queueStatus ?? '' },
+          })),
+      });
+
       const animate = () => {
         const t = Date.now() / 1000;
         const pulse = Math.sin(t * 1.4) * 0.5 + 0.5;
@@ -194,8 +212,9 @@ export default function MapScreen() {
   // Keep venuesRef in sync for click handler
   useEffect(() => { venuesRef.current = filteredVenues; }, [filteredVenues]);
 
-  // Update WebGL venue source
+  // Update WebGL venue source (only after map has loaded)
   useEffect(() => {
+    if (!mapReadyRef.current) return;
     const src = map.current?.getSource('venues-source') as mapboxgl.GeoJSONSource | undefined;
     if (!src) return;
     src.setData({
