@@ -111,8 +111,8 @@ export default function MapScreen() {
         ['==', ['get', 'qs'], 'moderat'],       '#ffe600',
         ['==', ['get', 'qs'], 'lang'],          '#ff6b00',
         ['==', ['get', 'qs'], 'fullt'],         '#ff2244',
-        ['==', ['get', 'type'], 'nattklubb'],   '#ffc300',
-        ['==', ['get', 'type'], 'bar'],         '#c77dff',
+        ['==', ['get', 'type'], 'nattklubb'],   '#c77dff',
+        ['==', ['get', 'type'], 'bar'],         '#ffc300',
         '#888888',
       ];
 

@@ -4,8 +4,8 @@ import { VenueType } from '../types';
 import { C, RADIUS } from '../constants/theme';
 
 export const VENUE_COLORS: Record<VenueType, string> = {
-  bar:        '#c77dff',
-  nattklubb:  '#ffc300',
+  bar:        '#ffc300',
+  nattklubb:  '#c77dff',
 };
 
 type Filter = VenueType | 'alle';
