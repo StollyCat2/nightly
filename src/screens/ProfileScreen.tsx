@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Switch, Modal, Linking, Platform,
+  Switch, Modal, Linking, Platform, Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { signOut } from 'firebase/auth';
-import { auth } from '../firebase/config';
+import { signOut, deleteUser } from 'firebase/auth';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
 import { C, RADIUS, RADIUS_LG } from '../constants/theme';
 import { CITIES } from '../constants/cities';
 import { requestNotificationPermission } from '../utils/notifications';
 
-type Sheet = 'varsler' | 'posisjon' | 'by' | 'personvern' | 'om' | null;
+type Sheet = 'varsler' | 'posisjon' | 'by' | 'personvern' | 'om' | 'slett' | null;
 
 const ICON_COLORS = {
   bell:    { bg: '#2a1a4a', color: '#c77dff' },
@@ -69,6 +70,33 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     setLoggingOut(true);
     await signOut(auth);
+  };
+
+  const handleDeleteAccount = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'userPings', user.uid));
+    } catch {}
+    try {
+      await Promise.all([
+        AsyncStorage.removeItem(`onboarded_${user.uid}`),
+        AsyncStorage.removeItem('my_city'),
+        AsyncStorage.removeItem('notifications_enabled'),
+        AsyncStorage.removeItem('location_enabled'),
+      ]);
+    } catch {}
+    try {
+      await deleteUser(user);
+    } catch (err: any) {
+      if (err.code === 'auth/requires-recent-login') {
+        Alert.alert(
+          'Logg inn på nytt',
+          'Av sikkerhetsgrunner må du logge inn på nytt før du kan slette kontoen.',
+          [{ text: 'OK', onPress: () => signOut(auth) }],
+        );
+      }
+    }
   };
 
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? '?';
@@ -174,6 +202,10 @@ export default function ProfileScreen() {
           <Text style={styles.signOutText}>{loggingOut ? 'Logger ut...' : 'Logg ut'}</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.deleteBtn} onPress={() => setSheet('slett')}>
+          <Text style={styles.deleteText}>Slett konto</Text>
+        </TouchableOpacity>
+
       </ScrollView>
 
       {/* Modals */}
@@ -222,23 +254,67 @@ export default function ProfileScreen() {
         </View>
       </InfoModal>
 
-      <InfoModal visible={sheet === 'personvern'} onClose={() => setSheet(null)} title="Personvern">
+      <InfoModal visible={sheet === 'personvern'} onClose={() => setSheet(null)} title="Personvernerklæring">
+        <Text style={styles.sheetMeta}>Sist oppdatert: mai 2026 · Nightly, Norge</Text>
+
+        <Text style={styles.sheetHeading}>Behandlingsansvarlig</Text>
+        <Text style={styles.sheetBody}>
+          Nightly er behandlingsansvarlig for dine personopplysninger. Kontakt oss på{' '}
+          <Text style={styles.sheetLinkInline} onPress={() => Linking.openURL('mailto:hei@nightly.no')}>hei@nightly.no</Text>.
+        </Text>
+
         <Text style={styles.sheetHeading}>Hvilke data samler vi inn?</Text>
         <Text style={styles.sheetBody}>
-          Nightly samler kun inn anonymisert posisjonsdata når du aktivt bruker appen og har gitt tillatelse.
-          Dataen brukes utelukkende til å vise byens puls på kartet.
+          <Text style={styles.sheetBold}>E-postadresse</Text> — brukes til innlogging og kontakt.{'\n\n'}
+          <Text style={styles.sheetBold}>Anonym posisjonsdata</Text> — kun når du aktivt bruker appen og har gitt tillatelse. Brukes til å vise byens puls på kartet. Lagres aldri med navn eller identitet knyttet til den.{'\n\n'}
+          <Text style={styles.sheetBold}>Bruksdata</Text> — anonymisert statistikk via Firebase Analytics (Google) om hvilke funksjoner som brukes.
         </Text>
-        <Text style={styles.sheetHeading}>Lagring</Text>
+
+        <Text style={styles.sheetHeading}>Lagringstid</Text>
         <Text style={styles.sheetBody}>
-          Din eksakte posisjon lagres aldri permanent. Posisjonspunkter slettes automatisk etter 10 minutter.
+          Posisjonsdata slettes automatisk etter 10 minutter. E-postadresse og kontodata lagres til du sletter kontoen.
         </Text>
-        <Text style={styles.sheetHeading}>Sletting av konto</Text>
+
+        <Text style={styles.sheetHeading}>Tredjeparter</Text>
         <Text style={styles.sheetBody}>
-          Ta kontakt på{' '}
-          <Text style={styles.sheetLinkInline} onPress={() => Linking.openURL('mailto:hei@nightly.no')}>
-            hei@nightly.no
+          Vi bruker Firebase (Google) for autentisering, database og analyse. Data kan behandles på servere i USA under EUs standardklausuler (SCCs). Vi selger aldri data til tredjeparter.
+        </Text>
+
+        <Text style={styles.sheetHeading}>Dine rettigheter (GDPR)</Text>
+        <Text style={styles.sheetBody}>
+          Du har rett til innsyn, retting, sletting og dataportabilitet. Du kan slette kontoen din direkte i appen under Profil → Slett konto, eller kontakte oss på{' '}
+          <Text style={styles.sheetLinkInline} onPress={() => Linking.openURL('mailto:hei@nightly.no')}>hei@nightly.no</Text>.
+        </Text>
+
+        <Text style={styles.sheetHeading}>Klagerett</Text>
+        <Text style={styles.sheetBody}>
+          Du kan klage til Datatilsynet (datatilsynet.no) dersom du mener vi behandler dataene dine i strid med personvernregelverket.
+        </Text>
+      </InfoModal>
+
+      <InfoModal visible={sheet === 'slett'} onClose={() => setSheet(null)} title="Slett konto">
+        <View style={styles.deleteWarning}>
+          <Text style={styles.deleteWarningIcon}>⚠️</Text>
+          <Text style={styles.deleteWarningTitle}>Er du sikker?</Text>
+          <Text style={styles.deleteWarningBody}>
+            Dette sletter kontoen din og alle tilknyttede data permanent. Handlingen kan ikke angres.
           </Text>
-        </Text>
+        </View>
+        <View style={styles.deleteList}>
+          <Text style={styles.deleteListItem}>✗ Kontoen din slettes</Text>
+          <Text style={styles.deleteListItem}>✗ Posisjonsdata fjernes</Text>
+          <Text style={styles.deleteListItem}>✗ Du kan ikke logge inn igjen med denne e-posten</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.deleteConfirmBtn}
+          onPress={() => { setSheet(null); handleDeleteAccount(); }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.deleteConfirmText}>Ja, slett kontoen min</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.skipBtn} onPress={() => setSheet(null)}>
+          <Text style={styles.skipBtnText}>Avbryt</Text>
+        </TouchableOpacity>
       </InfoModal>
 
       <InfoModal visible={sheet === 'om'} onClose={() => setSheet(null)} title="Om Nightly">
@@ -397,4 +473,32 @@ const styles = StyleSheet.create({
   omLogo: { alignItems: 'center', paddingVertical: 20 },
   omLogoText: { fontSize: 32, fontWeight: '800', color: C.text, letterSpacing: 6 },
   omVersion: { fontSize: 12, color: C.faint, marginTop: 6 },
+
+  sheetMeta: { fontSize: 11, color: C.faint, marginBottom: 4 },
+  sheetBold: { fontWeight: '700', color: C.text },
+
+  deleteBtn: {
+    marginHorizontal: 20, marginTop: 10, marginBottom: 8,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  deleteText: { color: C.faint, fontSize: 13 },
+
+  skipBtn: { marginTop: 12, paddingVertical: 10, alignItems: 'center' },
+  skipBtnText: { color: C.faint, fontSize: 14 },
+
+  deleteWarning: { alignItems: 'center', paddingVertical: 16, gap: 10 },
+  deleteWarningIcon: { fontSize: 40 },
+  deleteWarningTitle: { fontSize: 20, fontWeight: '800', color: C.text },
+  deleteWarningBody: { fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 22 },
+
+  deleteList: { gap: 10, marginVertical: 20, paddingHorizontal: 4 },
+  deleteListItem: { fontSize: 13, color: '#ff4466', fontWeight: '600' },
+
+  deleteConfirmBtn: {
+    backgroundColor: 'rgba(255,34,68,0.12)',
+    borderWidth: 1, borderColor: 'rgba(255,34,68,0.35)',
+    borderRadius: RADIUS, paddingVertical: 15,
+    alignItems: 'center', marginTop: 8,
+  },
+  deleteConfirmText: { color: '#ff4466', fontSize: 15, fontWeight: '700' },
 });
