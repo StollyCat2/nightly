@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { VenueDoc, QueueStatus, DayHours } from '../types';
 import { C, RADIUS } from '../constants/theme';
+import { logEvent } from '../firebase/config';
 
 const STATUS_LABELS: Record<QueueStatus, string> = {
   lite: 'Lite kø',
@@ -89,6 +90,7 @@ const VenueBottomSheet = forwardRef<VenueBottomSheetRef, Props>(({ venue, onClos
       ? `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`;
     window.open(url, '_blank');
+    logEvent('directions_open', { venue_id: venue.id, venue_name: venue.name });
   };
 
   return (

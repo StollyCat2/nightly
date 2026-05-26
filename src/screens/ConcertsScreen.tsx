@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Image, Linking,
 } from 'react-native';
 import { collection, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, logEvent } from '../firebase/config';
 import { C, RADIUS, RADIUS_LG } from '../constants/theme';
 import { CITIES } from '../constants/cities';
 
@@ -125,7 +125,7 @@ export default function ConcertsScreen() {
         <View style={styles.typeTabs}>
           <TouchableOpacity
             style={[styles.typeTab, tab === 'concert' && styles.typeTabActive]}
-            onPress={() => setTab('concert')}
+            onPress={() => { setTab('concert'); logEvent('events_tab_view', { tab: 'concert' }); }}
           >
             <Text style={[styles.typeTabText, tab === 'concert' && styles.typeTabTextActive]}>
               ♪ Konserter
@@ -140,7 +140,7 @@ export default function ConcertsScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.typeTab, tab === 'festival' && styles.typeTabActive]}
-            onPress={() => setTab('festival')}
+            onPress={() => { setTab('festival'); logEvent('events_tab_view', { tab: 'festival' }); }}
           >
             <Text style={[styles.typeTabText, tab === 'festival' && styles.typeTabTextActive]}>
               ⛺ Festivaler
@@ -242,7 +242,7 @@ function FeaturedCard({ event: concert }: { event: Event }) {
     <TouchableOpacity
       style={styles.featuredCard}
       activeOpacity={0.92}
-      onPress={() => concert.ticketUrl && Linking.openURL(concert.ticketUrl)}
+      onPress={() => { if (concert.ticketUrl) { Linking.openURL(concert.ticketUrl); logEvent('ticket_tap', { event_id: concert.id, event_title: concert.title, type: 'concert' }); } }}
     >
       {concert.imageUrl ? (
         <Image source={{ uri: concert.imageUrl }} style={styles.featuredImg} />
@@ -304,7 +304,7 @@ function FestivalCard({ event: festival }: { event: Event }) {
     <TouchableOpacity
       style={styles.festivalCard}
       activeOpacity={0.92}
-      onPress={() => festival.ticketUrl && Linking.openURL(festival.ticketUrl)}
+      onPress={() => { if (festival.ticketUrl) { Linking.openURL(festival.ticketUrl); logEvent('ticket_tap', { event_id: festival.id, event_title: festival.title, type: 'festival' }); } }}
     >
       {festival.imageUrl ? (
         <Image source={{ uri: festival.imageUrl }} style={StyleSheet.absoluteFill} />

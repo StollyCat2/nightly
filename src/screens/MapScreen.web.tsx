@@ -4,7 +4,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, setDoc, increment } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, logEvent } from '../firebase/config';
 import { useVenues } from '../hooks/useVenues';
 import { usePulseZones } from '../hooks/usePulseZones';
 import { VenueDoc, VenueType } from '../types';
@@ -150,12 +150,18 @@ export default function MapScreen() {
       map.current!.on('click', 'venues-halo', (e) => {
         const id = e.features?.[0]?.properties?.id;
         const venue = venuesRef.current.find((v) => v.id === id);
-        if (venue) { setSelectedVenue(venue); sheetRef.current?.open(); }
+        if (venue) {
+          setSelectedVenue(venue); sheetRef.current?.open();
+          logEvent('venue_tap', { venue_id: venue.id, venue_name: venue.name, city: venue.city ?? '' });
+        }
       });
       map.current!.on('click', 'venues-core', (e) => {
         const id = e.features?.[0]?.properties?.id;
         const venue = venuesRef.current.find((v) => v.id === id);
-        if (venue) { setSelectedVenue(venue); sheetRef.current?.open(); }
+        if (venue) {
+          setSelectedVenue(venue); sheetRef.current?.open();
+          logEvent('venue_tap', { venue_id: venue.id, venue_name: venue.name, city: venue.city ?? '' });
+        }
       });
 
       // Cursor
@@ -259,6 +265,7 @@ export default function MapScreen() {
   const handleGoingOut = async () => {
     await AsyncStorage.setItem(`prompt_shown_${today()}`, '1');
     setShowPrompt(false);
+    logEvent('going_out_confirmed', { city: activeCity.id });
     const ref = doc(db, 'cityCounters', activeCity.id);
     await setDoc(ref, { count: increment(1), date: today() }, { merge: true });
     setGoingOutCount((c) => c + 1);
