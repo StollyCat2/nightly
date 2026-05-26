@@ -1,12 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, Linking,
+  Animated, Image, Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
 import { db, logEvent } from '../firebase/config';
 import { C, RADIUS, RADIUS_LG } from '../constants/theme';
 import { CITIES } from '../constants/cities';
+
+const CACHE_KEY = 'nightly_events_v1';
 
 type EventType = 'concert' | 'festival';
 
@@ -73,7 +76,26 @@ export default function ConcertsScreen() {
   const [tab, setTab] = useState<EventType>('concert');
   const [selectedCity, setSelectedCity] = useState('Alle');
   const [selectedGenre, setSelectedGenre] = useState('Alle');
+  const hasCache = useRef(false);
 
+  // Load from cache immediately on mount
+  useEffect(() => {
+    AsyncStorage.getItem(CACHE_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const cached = JSON.parse(raw) as Array<Event & { date: string; endDate?: string }>;
+        setEvents(cached.map((e) => ({
+          ...e,
+          date: new Date(e.date),
+          endDate: e.endDate ? new Date(e.endDate) : undefined,
+        })));
+        hasCache.current = true;
+        setLoading(false);
+      } catch {}
+    });
+  }, []);
+
+  // Firestore listener — updates silently after cache is shown
   useEffect(() => {
     const now = Timestamp.fromDate(new Date());
     const q = query(
@@ -82,7 +104,7 @@ export default function ConcertsScreen() {
       orderBy('date', 'asc'),
     );
     return onSnapshot(q, (snap) => {
-      setEvents(snap.docs.map((d) => {
+      const fresh = snap.docs.map((d) => {
         const raw = d.data();
         return {
           id: d.id,
@@ -91,8 +113,10 @@ export default function ConcertsScreen() {
           date: raw.date?.toDate?.() ?? new Date(raw.date),
           endDate: raw.endDate ? (raw.endDate?.toDate?.() ?? new Date(raw.endDate)) : undefined,
         } as Event;
-      }));
+      });
+      setEvents(fresh);
       setLoading(false);
+      AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh)).catch(() => {});
     });
   }, []);
 
@@ -190,7 +214,7 @@ export default function ConcertsScreen() {
         {tab === 'festival' && <View style={{ height: 24 }} />}
 
         {loading ? (
-          <ActivityIndicator color={C.accent} size="large" style={{ marginTop: 60 }} />
+          <SkeletonList />
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>{tab === 'festival' ? '⛺' : '♪'}</Text>
@@ -232,6 +256,36 @@ export default function ConcertsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+    </View>
+  );
+}
+
+function SkeletonList() {
+  const pulse = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <View style={{ paddingHorizontal: 20, gap: 10, marginTop: 8 }}>
+      {[1, 2, 3, 4].map((i) => (
+        <Animated.View key={i} style={[styles.row, { opacity: pulse }]}>
+          <View style={{ width: 32, gap: 5 }}>
+            <View style={styles.skel} />
+            <View style={[styles.skel, { width: 24, height: 10 }]} />
+          </View>
+          <View style={[styles.skel, { width: 2, height: 44 }]} />
+          <View style={{ flex: 1, gap: 7 }}>
+            <View style={[styles.skel, { width: 56, height: 16, borderRadius: 6 }]} />
+            <View style={[styles.skel, { width: '75%', height: 18 }]} />
+            <View style={[styles.skel, { width: '50%', height: 12 }]} />
+          </View>
+        </Animated.View>
+      ))}
     </View>
   );
 }
@@ -488,4 +542,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6,
   },
   festivalTicketText: { fontSize: 11, fontWeight: '800', color: '#000' },
+
+  skel: {
+    width: 32, height: 22, borderRadius: 6,
+    backgroundColor: 'rgba(120,60,200,0.15)',
+  },
 });
