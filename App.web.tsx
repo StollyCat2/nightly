@@ -20,26 +20,30 @@ function Root() {
   const { user, loading } = useAuth();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
+  // Check onboarding flag tied to this specific user's UID
   useEffect(() => {
-    AsyncStorage.getItem('onboarded').then((val) => setOnboarded(val === '1'));
+    if (!user) { setOnboarded(null); return; }
+    const key = `onboarded_${user.uid}`;
+    AsyncStorage.getItem(key).then((val) => setOnboarded(val === '1'));
     AsyncStorage.getItem('notifications_enabled').then((enabled) => {
       if (enabled !== '1') return;
       AsyncStorage.getItem('my_city').then((city) => {
         checkWeekendNotification(city ?? 'Bergen');
       });
     });
-  }, []);
+  }, [user?.uid]);
 
-  if (loading || onboarded === null) {
-    return <View style={styles.splash} />;
-  }
-
+  if (loading) return <View style={styles.splash} />;
   if (!user) return <AuthScreen />;
+  if (onboarded === null) return <View style={styles.splash} />;
 
   if (!onboarded) {
     return (
       <OnboardingScreen
-        onDone={() => setOnboarded(true)}
+        onDone={async () => {
+          await AsyncStorage.setItem(`onboarded_${user.uid}`, '1');
+          setOnboarded(true);
+        }}
         requestPermission={requestLocationPermission}
       />
     );
