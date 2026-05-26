@@ -105,12 +105,15 @@ export default function MapScreen() {
       });
 
       // Venue markers — WebGL circles (no DOM lag)
+      // Priority: queue status → venue type → default
       const colorExpr: mapboxgl.Expression = ['case',
-        ['==', ['get', 'qs'], 'lite'],    '#39ff14',
-        ['==', ['get', 'qs'], 'moderat'], '#ffe600',
-        ['==', ['get', 'qs'], 'lang'],    '#ff6b00',
-        ['==', ['get', 'qs'], 'fullt'],   '#ff2244',
-        '#c77dff',
+        ['==', ['get', 'qs'], 'lite'],          '#39ff14',
+        ['==', ['get', 'qs'], 'moderat'],       '#ffe600',
+        ['==', ['get', 'qs'], 'lang'],          '#ff6b00',
+        ['==', ['get', 'qs'], 'fullt'],         '#ff2244',
+        ['==', ['get', 'type'], 'nattklubb'],   '#ffc300',
+        ['==', ['get', 'type'], 'bar'],         '#c77dff',
+        '#888888',
       ];
 
       map.current!.addSource('venues-source', {
@@ -180,7 +183,7 @@ export default function MapScreen() {
           .map((v) => ({
             type: 'Feature' as const,
             geometry: { type: 'Point' as const, coordinates: [v.lng!, v.lat!] },
-            properties: { id: v.id, qs: v.queueStatus ?? '' },
+            properties: { id: v.id, qs: v.queueStatus ?? '', type: v.type ?? '' },
           })),
       });
 
@@ -230,7 +233,7 @@ export default function MapScreen() {
         .map((v) => ({
           type: 'Feature' as const,
           geometry: { type: 'Point' as const, coordinates: [v.lng!, v.lat!] },
-          properties: { id: v.id, qs: v.queueStatus ?? '' },
+          properties: { id: v.id, qs: v.queueStatus ?? '', type: v.type ?? '' },
         })),
     });
   }, [filteredVenues]);
