@@ -9,7 +9,7 @@ type Tab = 'map' | 'concerts' | 'profile';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'map', label: 'Utforsk', icon: '◎' },
-  { id: 'concerts', label: 'Konserter', icon: '♪' },
+  { id: 'concerts', label: 'Eventer', icon: '♪' },
   { id: 'profile', label: 'Profil', icon: '◉' },
 ];
 
